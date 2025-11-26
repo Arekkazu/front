@@ -20,6 +20,11 @@ def create_app(config_name=None):
     # Cargar configuración desde el diccionario
     app.config.from_object(config[config_name])
 
+    # Log de depuración de la URI de base de datos antes de inicializar SQLAlchemy
+    print(
+        f"[DB DEBUG] SQLALCHEMY_DATABASE_URI={app.config.get('SQLALCHEMY_DATABASE_URI')}"
+    )
+
     # Inicializar extensiones
     db.init_app(app)
     login_manager.init_app(app)
@@ -28,12 +33,12 @@ def create_app(config_name=None):
     # Configurar user loader para Flask-Login
     @login_manager.user_loader
     def load_user(user_id):
-        from app.models.user import User
+        from server.models.user import User
 
         return User.query.get(int(user_id))
 
     # Registro de blueprints
-    from app.routes import blueprints
+    from server.routes import blueprints
 
     for bp in blueprints:
         app.register_blueprint(bp)
@@ -61,9 +66,10 @@ def create_app(config_name=None):
 
 def initialize_database():
     """Inicializar la base de datos con datos por defecto"""
-    from app import db
-    from app.models.role import Role
-    from app.models.user import User
+    from server.models.role import Role
+    from server.models.user import User
+
+    from server import db
 
     db.create_all()
 
