@@ -18,7 +18,6 @@ import os
 _REQUIRED_ENV_DEFAULTS = {
     "SECRET_KEY": "change-this-secret",
     "QR_SECRET_KEY": "change-this-qr-secret",
-    "DATABASE_URL": "postgresql+psycopg2://postgres:postgres@localhost:5432/qr_flask",
 }
 
 for _k, _v in _REQUIRED_ENV_DEFAULTS.items():
@@ -34,7 +33,9 @@ def _resolve_config_name() -> str:
     return "default"
 
 
-from app import create_app as flask_create_app  # Alias para evitar confusión de nombres
+from app import (
+    create_app as flask_create_app,  # Import corregido: usar paquete app (sin server.*) - factoría de aplicación
+)
 
 app = flask_create_app(_resolve_config_name())
 

@@ -33,12 +33,12 @@ def create_app(config_name=None):
     # Configurar user loader para Flask-Login
     @login_manager.user_loader
     def load_user(user_id):
-        from server.models.user import User
+        from app.models.user import User
 
         return User.query.get(int(user_id))
 
     # Registro de blueprints
-    from server.routes import blueprints
+    from app.routes import blueprints
 
     for bp in blueprints:
         app.register_blueprint(bp)
@@ -66,10 +66,9 @@ def create_app(config_name=None):
 
 def initialize_database():
     """Inicializar la base de datos con datos por defecto"""
-    from server.models.role import Role
-    from server.models.user import User
-
-    from server import db
+    from app import db
+    from app.models.role import Role
+    from app.models.user import User
 
     db.create_all()
 
