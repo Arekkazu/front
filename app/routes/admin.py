@@ -1,17 +1,19 @@
 from flask import (
     Blueprint,
+    Response,
+    current_app,
+    flash,
+    redirect,
     render_template,
     request,
-    redirect,
-    url_for,
-    flash,
-    current_app,
     session,
+    url_for,
 )
+
 from app.routes.auth import admin_required
-from app.services.user_service import UserService
 from app.services.attendance_service import AttendanceService
 from app.services.qr_service import QRService
+from app.services.user_service import UserService
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -40,7 +42,13 @@ def dashboard():
 @bp.route("/scanner")
 @admin_required
 def scanner():
-    return render_template("admin/scanner.html", title="Registrar Asistencia")
+    # Mostrar últimos registros de asistencia
+    recent_attendance = AttendanceService().get_all()[:10]
+    return render_template(
+        "admin/scanner.html",
+        title="Registrar Asistencia",
+        recent_attendance=recent_attendance,
+    )
 
 
 @bp.route("/record_attendance", methods=["POST"])
@@ -76,6 +84,104 @@ def record_attendance():
         flash("Error al registrar asistencia. Intente nuevamente.", "danger")
 
     return redirect(url_for("admin.scanner"))
+
+
+@bp.route("/attendance_list")
+@admin_required
+def attendance_list():
+    """
+    Lista de asistencias con filtros por fecha, paginación y exportación CSV
+    Parámetros:
+      - start: fecha inicio (YYYY-MM-DD o DD/MM/YYYY)
+      - end: fecha fin (YYYY-MM-DD o DD/MM/YYYY)
+      - page: número de página (por defecto 1)
+      - per_page: registros por página (por defecto 20, máx 100)
+      - export=csv: exporta el resultado filtrado a CSV
+    """
+    import csv
+    import io
+    from datetime import datetime as dt
+
+    attendance_service = AttendanceService()
+
+    # Filtros
+    start_date_str = request.args.get("start")
+    end_date_str = request.args.get("end")
+
+    def parse_date(s: str):
+        if not s:
+            return None
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+            try:
+                return dt.strptime(s, fmt).date()
+            except ValueError:
+                continue
+        return None
+
+    start_date = parse_date(start_date_str)
+    end_date = parse_date(end_date_str)
+
+    # Paginación
+    try:
+        page = max(1, int(request.args.get("page", "1")))
+    except ValueError:
+        page = 1
+    try:
+        per_page = max(1, min(100, int(request.args.get("per_page", "20"))))
+    except ValueError:
+        per_page = 20
+    offset = (page - 1) * per_page
+
+    # Obtener todos (ordenados desc por fecha en repo) y filtrar en memoria
+    all_attendance = attendance_service.get_all()
+
+    if start_date:
+        all_attendance = [a for a in all_attendance if a.date and a.date >= start_date]
+    if end_date:
+        all_attendance = [a for a in all_attendance if a.date and a.date <= end_date]
+
+    total_items = len(all_attendance)
+
+    # Exportación CSV
+    if request.args.get("export") == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["user_id", "date", "timestamp"])
+        for a in all_attendance:
+            writer.writerow(
+                [
+                    a.user_id,
+                    a.date.isoformat() if a.date else "",
+                    a.timestamp.isoformat() if a.timestamp else "",
+                ]
+            )
+        csv_data = output.getvalue()
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=attendances.csv"},
+        )
+
+    # Paginar
+    paginated = all_attendance[offset : offset + per_page]
+    pagination = {
+        "page": page,
+        "per_page": per_page,
+        "total": total_items,
+        "pages": (total_items + per_page - 1) // per_page if per_page else 1,
+        "has_prev": page > 1,
+        "has_next": offset + per_page < total_items,
+    }
+
+    return render_template(
+        "admin/attendance_list.html",
+        title="Asistencias",
+        attendance_history=paginated,
+        pagination=pagination,
+        start_date=start_date_str or "",
+        end_date=end_date_str or "",
+        total_items=total_items,
+    )
 
 
 @bp.route("/add_user", methods=["POST"])
