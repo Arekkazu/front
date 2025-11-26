@@ -15,6 +15,5 @@
   "env": {
     "FLASK_ENV": "production",
     "QR_EXPIRATION": "60"
-  },
-  "framework": "none"
+  }
 }
