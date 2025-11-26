@@ -34,9 +34,9 @@ def _resolve_config_name() -> str:
     return "default"
 
 
-from app import create_app  # Import tardío para que las variables estén listas
+from app import create_app as flask_create_app  # Alias para evitar confusión de nombres
 
-app = create_app(_resolve_config_name())
+app = flask_create_app(_resolve_config_name())
 
 
 # Ruta opcional de health-check (si quieres usarla en Vercel)
