@@ -43,6 +43,10 @@ def dashboard():
     qr_service = get_qr_service()
     qr_data = qr_service.create_qr_data(user.id)
 
+    # Cargar historial real de asistencias del usuario
+    attendance_service = AttendanceService()
+    attendance_history = attendance_service.get_user_attendance(user.id)
+
     return render_template(
         "user/dashboard.html",
         title="Mi Dashboard",
@@ -50,6 +54,7 @@ def dashboard():
         qr_token=qr_data["token"],
         qr_img=qr_data["image"],
         QR_EXPIRATION=current_app.config.get("QR_EXPIRATION", 60),
+        attendance_history=attendance_history,
     )
 
 

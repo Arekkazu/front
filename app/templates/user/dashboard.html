@@ -119,19 +119,16 @@
                             </tr>
                         </thead>
                         <tbody>
+                            {% if attendance_history %} {% for a in
+                            attendance_history %}
                             <tr>
-                                <td>{{ now.strftime('%Y-%m-%d') }}</td>
-                                <td>{{ now.strftime('%H:%M') }}</td>
                                 <td>
-                                    <span class="badge bg-success">
-                                        <i class="fas fa-check me-1"></i
-                                        >Registrado hoy
-                                    </span>
+                                    {{ a.date.strftime('%Y-%m-%d') if a.date }}
                                 </td>
-                            </tr>
-                            <tr>
-                                <td>2023-10-15</td>
-                                <td>08:30</td>
+                                <td>
+                                    {{ a.timestamp.strftime('%H:%M') if
+                                    a.timestamp }}
+                                </td>
                                 <td>
                                     <span class="badge bg-success">
                                         <i class="fas fa-check me-1"></i
@@ -139,15 +136,15 @@
                                     </span>
                                 </td>
                             </tr>
+                            {% endfor %} {% else %}
                             <tr>
-                                <td>2023-10-14</td>
-                                <td>08:45</td>
-                                <td>
-                                    <span class="badge bg-warning">
-                                        <i class="fas fa-clock me-1"></i>Tarde
-                                    </span>
+                                <td colspan="3" class="text-center text-muted">
+                                    No hay registros de asistencia. Escanea tu
+                                    código QR para registrar tu primera
+                                    asistencia.
                                 </td>
                             </tr>
+                            {% endif %}
                         </tbody>
                     </table>
                 </div>
