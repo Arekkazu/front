@@ -2,6 +2,7 @@ from datetime import datetime
 
 from flask import (
     Blueprint,
+    Response,
     current_app,
     flash,
     redirect,
@@ -55,7 +56,11 @@ def dashboard():
 @bp.route("/attendance")
 @login_required
 def attendance():
-    """Historial de asistencias del usuario"""
+    """Historial de asistencias del usuario con filtros, paginación y exportación CSV"""
+    import csv
+    import io
+    from datetime import datetime as dt
+
     user_service = UserService()
     attendance_service = AttendanceService()
 
@@ -65,14 +70,93 @@ def attendance():
         flash("Usuario no encontrado", "danger")
         return redirect(url_for("auth.login"))
 
-    # Obtener historial de asistencias
+    # Parámetros de filtro por fecha
+    start_date_str = request.args.get("start")
+    end_date_str = request.args.get("end")
+
+    # Paginación
+    try:
+        page = max(1, int(request.args.get("page", "1")))
+    except ValueError:
+        page = 1
+    try:
+        per_page = max(1, min(100, int(request.args.get("per_page", "20"))))
+    except ValueError:
+        per_page = 20
+
+    offset = (page - 1) * per_page
+
+    # Obtener historial completo y aplicar filtros en memoria si se especifican fechas
     attendance_history = attendance_service.get_user_attendance(user.id)
+
+    # Filtrar por rango de fechas si corresponde
+    def parse_date(s: str):
+        # Acepta formatos: YYYY-MM-DD o DD/MM/YYYY
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+            try:
+                return dt.strptime(s, fmt).date()
+            except ValueError:
+                continue
+        return None
+
+    start_date = parse_date(start_date_str) if start_date_str else None
+    end_date = parse_date(end_date_str) if end_date_str else None
+
+    if start_date:
+        attendance_history = [
+            a for a in attendance_history if a.date and a.date >= start_date
+        ]
+    if end_date:
+        attendance_history = [
+            a for a in attendance_history if a.date and a.date <= end_date
+        ]
+
+    total_items = len(attendance_history)
+
+    # Exportación CSV si se solicita
+    if request.args.get("export") == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["user_id", "date", "timestamp"])
+        for a in attendance_history:
+            writer.writerow(
+                [
+                    a.user_id,
+                    a.date.isoformat() if a.date else "",
+                    a.timestamp.isoformat() if a.timestamp else "",
+                ]
+            )
+        csv_data = output.getvalue()
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={
+                "Content-Disposition": "attachment; filename=attendance.csv",
+            },
+        )
+
+    # Aplicar paginación
+    paginated = attendance_history[offset : offset + per_page]
+
+    # Datos de paginación para el template
+    pagination = {
+        "page": page,
+        "per_page": per_page,
+        "total": total_items,
+        "pages": (total_items + per_page - 1) // per_page if per_page else 1,
+        "has_prev": page > 1,
+        "has_next": offset + per_page < total_items,
+    }
 
     return render_template(
         "user/attendance.html",
         title="Mi Asistencia",
         user=user,
-        attendance_history=attendance_history,
+        attendance_history=paginated,
+        total_items=total_items,
+        pagination=pagination,
+        start_date=start_date_str or "",
+        end_date=end_date_str or "",
     )
 
 
